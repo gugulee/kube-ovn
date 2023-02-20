@@ -71,16 +71,39 @@ func (c *ovnClient) LoadBalancerAddVips(lbName string, vips map[string]string) e
 		return err
 	}
 
-	if lb.Vips == nil {
-		lb.Vips = make(map[string]string)
+	updatedVips := make(map[string]string, len(lb.Vips)+1)
+	for vip, backends := range lb.Vips {
+		updatedVips[vip] = backends
 	}
-
 	for vip, backends := range vips {
-		lb.Vips[vip] = backends
+		updatedVips[vip] = backends
 	}
+	lb.Vips = updatedVips
 
 	if err := c.UpdateLoadBalancer(lb, &lb.Vips); err != nil {
 		return fmt.Errorf("add vips %v to lb %s: %v", vips, lbName, err)
+	}
+
+	return nil
+}
+
+// LoadBalancerDeleteVips delete load balancer vips
+func (c *ovnClient) LoadBalancerDeleteVips(lbName string, vips map[string]struct{}) error {
+	if len(vips) == 0 {
+		return nil
+	}
+
+	lb, err := c.GetLoadBalancer(lbName, false)
+	if err != nil {
+		return err
+	}
+
+	for vip := range vips {
+		delete(lb.Vips, vip)
+	}
+
+	if err := c.UpdateLoadBalancer(lb, &lb.Vips); err != nil {
+		return fmt.Errorf("delete vips %v from lb %s: %v", vips, lbName, err)
 	}
 
 	return nil
@@ -136,28 +159,6 @@ func (c *ovnClient) DeleteLoadBalancer(lbName string) error {
 
 	if err := c.Transact("lb-del", op); err != nil {
 		return fmt.Errorf("delete load balancer %s: %v", lbName, err)
-	}
-
-	return nil
-}
-
-// LoadBalancerDeleteVips delete load balancer vips
-func (c *ovnClient) LoadBalancerDeleteVips(lbName string, vips map[string]struct{}) error {
-	if len(vips) == 0 {
-		return nil
-	}
-
-	lb, err := c.GetLoadBalancer(lbName, false)
-	if err != nil {
-		return err
-	}
-
-	for vip := range vips {
-		delete(lb.Vips, vip)
-	}
-
-	if err := c.UpdateLoadBalancer(lb, &lb.Vips); err != nil {
-		return fmt.Errorf("delete vips %v from lb %s: %v", vips, lbName, err)
 	}
 
 	return nil

@@ -616,10 +616,22 @@ func Test_scratch(t *testing.T) {
 	ovnClient, err := newOvnClient(t, endpoint, 10, "")
 	require.NoError(t, err)
 
-	err = ovnClient.CreateLoadBalancer("test-lb", "tcp", "ip_src")
+	lbName := "test-lb"
+	err = ovnClient.CreateLoadBalancer(lbName, "tcp", "ip_src")
 	require.NoError(t, err)
 
-	err = ovnClient.SetLoadBalancerAffinityTimeout("test-lb", 300)
+	vips := map[string]string{
+		"10.96.0.1:443":           "192.168.20.11:6443",
+		"10.107.43.237:8080":      "10.244.0.100:8080,10.244.0.16:8080,10.244.0.17:8080",
+		"[fd00:10:96::e82f]:8080": "[fc00::af4:f]:8080,[fc00::af4:10]:8080,[fc00::af4:11]:8080",
+	}
+
+	err = ovnClient.LoadBalancerAddVips(lbName, vips)
+	require.NoError(t, err)
+
+	err = ovnClient.LoadBalancerDeleteVips(lbName, map[string]struct{}{
+		"10.96.0.1:443": {},
+	})
 	require.NoError(t, err)
 }
 
